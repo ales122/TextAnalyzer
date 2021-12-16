@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using DeepMorphy;
 using TextAnalyzer.Comparer;
-using TextAnalyzer.DTO;
 using TextAnalyzer.Models;
 using TextAnalyzer.Models.Enums;
 using TextAnalyzer.Models.Interfaces;
@@ -65,61 +64,13 @@ namespace TextAnalyzer.Services
             string pattern = @"[\daeiou]";
             var words = sentences
                 .SelectMany(x => x.Words
-                .Where(y => y is IWord word && word.Count == length && !Regex.IsMatch(word.FirstChar, pattern)));
+                    .Where(y => y is IWord word && word.Count == length && !Regex.IsMatch(word.FirstChar, pattern)));
             foreach (var sentence in sentences)
-                foreach (var word in words.ToList())
-                    sentence.Remove(word);
+            foreach (var word in words.ToList())
+                sentence.Remove(word);
             return sentences;
         }
 
-        public IEnumerable<ConcordanceItem> Concordance(IText text)
-        {
-            return text.Sentences
-                .SelectMany(sentence => sentence.Words)
-                .GroupBy(word => word.ToString().ToLower())
-                .Select(item => new ConcordanceItem { Word = new Word(item.Key), Count = item.ToList().Count })
-                .Where(item => item.Word.Count > 0)
-                .OrderBy(x => x.Word.FirstChar);
-        }
 
-        public IEnumerable<ConcordanceItemsDTO> ConcordanceMorphy(IEnumerable<ConcordanceItem> items)
-        {
-            var concordances = items.ToDictionary(x => x.Word.ToString());
-            var morphAnalyzer = new MorphAnalyzer(withLemmatization: true);
-            var results = morphAnalyzer.Parse(concordances.Select(x => x.Key)).ToList();
-            var pairs = new Dictionary<string, IList<ConcordanceItem>>();
-
-            foreach (var morphInfo in results)
-            {
-                var mainWord = morphInfo;
-                bool checkpoint = false;
-                foreach (var item in pairs)
-                {
-                    if (item.Value.Select(x => x.Word.ToString()).Contains(mainWord.Text))
-                    {
-                        checkpoint = true;
-                        break;
-                    }
-                }
-                if (checkpoint)
-                {
-                    continue;
-                }
-                var strings = new List<ConcordanceItem>();
-                foreach (var item in results)
-                {
-                    if (mainWord.CanBeSameLexeme(item))
-                    {
-                        strings.Add(concordances[item.Text]);
-                    }
-                }
-                pairs.Add(mainWord.Text, strings);
-            }
-            return pairs.Select(x => new ConcordanceItemsDTO
-            {
-                Words = string.Join('/', x.Value.Select(x => x.Word.ToString())),
-                Counter = x.Value.Select(x => x.Count).Sum()
-            });
-        }
     }
 }
